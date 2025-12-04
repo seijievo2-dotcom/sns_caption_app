@@ -1,4 +1,5 @@
-import os
+iimport os
+import json
 import streamlit as st
 from openai import OpenAI
 
@@ -27,6 +28,8 @@ if not api_key:
     st.stop()
 
 client = OpenAI(api_key=api_key)
+
+generated_caption = None  # 後でコピー用に保持
 
 if st.button("キャプションを生成する"):
     if not content.strip():
@@ -57,9 +60,35 @@ if st.button("キャプションを生成する"):
                 temperature=0.8,
             )
 
-            # 新しいSDK仕様に対応
-            result = response.choices[0].message.content
+            generated_caption = response.choices[0].message.content
 
             st.subheader("生成されたキャプション")
-            st.write(result)
+            st.text_area(
+                "キャプション（編集も可能です）",
+                value=generated_caption,
+                height=200,
+                key="generated_caption_area",
+            )
             st.success("生成完了！✨")
+
+            # コピー用ボタン
+            if st.button("このキャプションをコピー"):
+                # text_area の内容を取得（ユーザーが編集している可能性もあるのでこちらを優先）
+                text_to_copy = st.session_state.get("generated_caption_area", generated_caption or "")
+
+                if text_to_copy.strip():
+                    # JS でクリップボードへコピー
+                    escaped = json.dumps(text_to_copy)  # JS用に安全にエスケープ
+                    st.markdown(
+                        f"""
+                        <script>
+                        navigator.clipboard.writeText({escaped}).then(function() {{
+                            console.log("Copied to clipboard");
+                        }});
+                        </script>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.success("クリップボードにコピーしました ✅")
+                else:
+                    st.warning("コピーするキャプションがありません。")
